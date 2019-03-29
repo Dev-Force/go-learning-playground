@@ -2,7 +2,6 @@ package pipeline
 
 import (
 	"fmt"
-	"sync"
 	"time"
 )
 /*
@@ -11,12 +10,12 @@ import (
 	and closes the channel when all the values have been sent
 */
 
-func gen(numbers []int, delay time.Duration) chan int {
-	ch := make(chan int)
+func gen(numbers []int) chan int {
+	ch := make(chan int, 5)
 	go func () {
 		for _, n := range numbers {
-			// time.Sleep(delay)
 			ch <- n // blocks go routine for every insertion since its unbuffered
+			time.Sleep(1 * time.Second)
 		}
 		close(ch)
 	}()
@@ -34,8 +33,9 @@ func sq(numbers <-chan int) chan int {
 	go func () {
 
 		for n := range numbers {
+			//fmt.Println(n*n)
 			square <-n*n
-			// time.Sleep(1000 * time.Millisecond)
+			time.Sleep(1 * time.Second)
 		}
 		close(square)
 	}()
@@ -43,46 +43,18 @@ func sq(numbers <-chan int) chan int {
 	return square;
 }
 
-func merge(channels ...<-chan int) <-chan int {
-	out := make(chan int)
-	var wg sync.WaitGroup
-
-	wg.Add(len(channels))
-
-	for _, c := range channels {
-		go func(ch <-chan int) {
-			for n := range ch {
-				out <- n
-			}
-			wg.Done()
-		}(c)
-	}
-
-	go func(wgc *sync.WaitGroup, c chan int) {
-		wg.Wait()
-		close(out)
-	}(&wg, out)
-
-	return out;
-}
-
 func Execute() {
 
 	numbers := []int{1, 2, 3, 4}
 
-	genNumbers := gen(numbers, 200 * time.Millisecond)
+	w1 := sq(gen(numbers))
 
-
-	sqdWorker1 := sq(genNumbers)
-
-	sqdWorker2 := sq(genNumbers)
-
-	out := merge(sqdWorker1, sqdWorker2)
-
-	for n := range out {
+	for n := range w1 {
 		fmt.Println(n)
 	}
 
-	// here trying to fetch data from the channel will return 0 as value and false as isOpen
+	// here trying to fetch data from the channel will return 0 as value and false as ok
+	// value, ok := <-w1
 
+	fmt.Println("Hello, playground")
 }
