@@ -43,16 +43,19 @@ func sq(numbers <-chan int) chan int {
 	return square;
 }
 
-func merge(channels ...<-chan int) <-chan int {
+func merge(done chan struct{}, channels ...<-chan int) <-chan int {
 	out := make(chan int)
 	var wg sync.WaitGroup
 
 	wg.Add(len(channels))
 
 	for _, c := range channels {
-		go func(ch <-chan int) {
-			for n := range ch {
-				out <- n
+		go func(c <-chan int) {
+			for n := range c {
+				select {
+				case out <- n:
+				case <-done:
+				}
 			}
 			wg.Done()
 		}(c)
@@ -68,7 +71,8 @@ func merge(channels ...<-chan int) <-chan int {
 
 func Execute() {
 
-	numbers := []int{1, 2, 3, 4}
+	done := make(chan struct{}, 2)
+	numbers := []int{2, 3}
 
 	genNumbers := gen(numbers, 200 * time.Millisecond)
 
@@ -77,7 +81,7 @@ func Execute() {
 
 	sqdWorker2 := sq(genNumbers)
 
-	out := merge(sqdWorker1, sqdWorker2)
+	out := merge(done, sqdWorker1, sqdWorker2)
 
 	for n := range out {
 		fmt.Println(n)
